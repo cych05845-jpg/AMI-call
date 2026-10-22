@@ -6,8 +6,10 @@
 <meta name="theme-color" content="#0A0C10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>AMI 啟動系統｜嘉義基督教醫院</title>
+<!-- 嘉基急診帳號中心（員編＋PIN 單一登入） -->
+<script src="https://cych05845-jpg.github.io/ed-account/account-sdk.js"></script>
 <!--
-  AMI 啟動系統 v1.2（前端）— 外觀與操作沿用 ECPR v4.1
+  AMI 啟動系統 v1.3（前端）— 外觀與操作沿用 ECPR v4.1
   部署：把下面 API 換成你的 Apps Script 網頁應用程式網址，放上 GitHub Pages。
   ⚠ 本頁不放任何金鑰；不輸入病人姓名、病歷號。
 -->
@@ -190,11 +192,18 @@
 <div id="loginScreen">
   <div class="login-card">
     <div class="logo"><div class="ic">🫀</div><h1>AMI 啟動系統</h1><p>嘉義基督教醫院 急診醫學部</p></div>
-    <div id="loginForm">
-      <div class="fg"><label>帳號</label><input class="inp" id="lgUser" autocomplete="username"></div>
+    <div id="ssoBox">
+      <button class="btn br btn-lg btn-fw" onclick="ssoGo()">🔑 帳號中心登入（員編＋PIN）</button>
+      <div class="muted" style="text-align:center;margin-top:8px">院內同仁請用這個，和其他急診程式同一組帳號</div>
+      <div id="ssoMsg" class="alert al-yellow hidden" style="margin-top:12px"></div>
+      <div class="link" onclick="showLocal(true)">EMT／院外人員登入 ▾</div>
+    </div>
+    <div id="loginForm" class="hidden">
+      <div class="fg"><label>AMI 帳號</label><input class="inp" id="lgUser" autocomplete="username"></div>
       <div class="fg"><label>密碼</label><input class="inp" id="lgPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-      <button class="btn br btn-lg btn-fw" id="lgBtn" onclick="doLogin()">登入</button>
-      <div class="link" onclick="showReg(true)">沒有帳號？申請註冊</div>
+      <button class="btn bgh btn-lg btn-fw" id="lgBtn" onclick="doLogin()">登入</button>
+      <div class="link" onclick="showReg(true)">EMT 申請 AMI 帳號</div>
+      <div class="link" onclick="showLocal(false)">← 返回帳號中心登入</div>
     </div>
     <div id="regForm" class="hidden">
       <div class="fg"><label>帳號（英數字）</label><input class="inp" id="rgUser"></div>
@@ -312,6 +321,19 @@ function lsSet(k,v){ try{ v===null?localStorage.removeItem(k):localStorage.setIt
 //  登入
 // ════════════════════════════════════════
 function showReg(on){ document.getElementById('loginForm').classList.toggle('hidden',on); document.getElementById('regForm').classList.toggle('hidden',!on); }
+function showLocal(on){ document.getElementById('ssoBox').classList.toggle('hidden',on); document.getElementById('loginForm').classList.toggle('hidden',!on); document.getElementById('regForm').classList.add('hidden'); }
+function ssoGo(){ if(!window.ACCOUNT){ toast('帳號中心元件載入失敗，請確認網路後重新整理','err'); return; } ACCOUNT.goLogin(); }
+function ssoMsg(html,cls){ const e=document.getElementById('ssoMsg'); e.className='alert '+(cls||'al-yellow'); e.innerHTML=html; e.classList.toggle('hidden',!html); }
+async function trySso(){
+  if(!window.ACCOUNT) return false;
+  const ct=ACCOUNT.token(); if(!ct) return false;
+  ssoMsg('<span class="spin"></span>&nbsp;帳號中心登入中…','al-blue');
+  const r=await api('ssoLogin',{centerToken:ct});
+  if(r.success){ ssoMsg(''); TOKEN=r.token; CU=r.user; lsSet('ami_token',TOKEN); startApp(); return true; }
+  const link=`<div style="margin-top:8px"><a class="btn bgh btn-sm" href="${ACCOUNT.centerUrl}">前往帳號中心</a></div>`;
+  ssoMsg(esc(r.message||'登入失敗')+((r.needPin||r.noPerm||r.needCenter)?link:''));
+  return false;
+}
 function regRoleChg(){ document.getElementById('rgUnitWrap').classList.toggle('hidden', document.getElementById('rgRole').value!=='emt'); }
 async function doLogin(){
   const b=document.getElementById('lgBtn'); b.disabled=true; b.innerHTML='<span class="spin"></span>';
@@ -327,6 +349,7 @@ async function doRegister(){
   if(r.success) showReg(false);
 }
 function logout(){
+  if(CU && CU.sso && window.ACCOUNT){ try{ ACCOUNT.logout(); }catch(e){} }   // 帳號中心共用登入：一起登出
   TOKEN=null; CU=null; lsSet('ami_token',null); clearInterval(pollTimer); closeModal();
   document.getElementById('app').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden');
 }
@@ -677,7 +700,7 @@ async function walkInOk(){
 }
 function takeShiftAsk(){
   const roles=CU.role==='dr'?[['cv','CV（備援）']]:[[CU.role,ROLES[CU.role].label]];
-  modal(`<h3>🙋 我接班</h3><p class="muted" style="margin-bottom:10px">臨時調班時使用：接下來的時段，系統改打電話給你（${esc(CU.phone||'帳號未填手機')}）。</p>
+  modal(`<h3>🙋 我接班</h3><p class="muted" style="margin-bottom:10px">臨時調班時使用：接下來的時段，系統改打電話給你（${esc(CU.phone||'尚未填手機，請先點右上角名字設定')}）。</p>
     <div class="fg"><label>崗位</label><select class="inp" id="tsRole">${roles.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>
     <div class="fg"><label>接班時數</label><select class="inp" id="tsH"><option>12</option><option>8</option><option>24</option><option>4</option></select></div>
     <div class="act"><button class="btn bgh" onclick="closeModal()">取消</button><button class="btn bg" onclick="takeShiftOk()">確認接班</button></div>`);
@@ -729,8 +752,8 @@ async function adminTab(t){
     const r=await api('listAccounts'); if(!r.success){ el.innerHTML=`<div class="alert al-red">${esc(r.message)}</div>`; return; }
     const pend=r.accounts.filter(a=>!a.approved);
     el.innerHTML=(pend.length?`<div class="alert al-yellow"><span>🔔</span><div>${pend.length} 個帳號待核准</div></div>`:'')+
-      r.accounts.map(a=>`<div class="row-li"><div class="grow"><b>${esc(a.displayname)}</b> <span class="muted">${esc(a.username)}</span><div class="muted">${esc(a.unit||'')} ${esc(a.phone||'')}</div></div>
-        <select class="inp" style="max-width:150px" onchange="setAcc('${esc(a.username)}',{role:this.value})" ${a.role==='admin'?'disabled':''}>${Object.keys(ROLES).filter(k=>k!=='admin'||a.role==='admin').map(k=>`<option value="${k}" ${k===a.role?'selected':''}>${ROLES[k].label}</option>`).join('')}</select>
+      r.accounts.map(a=>`<div class="row-li"><div class="grow"><b>${esc(a.displayname)}</b> <span class="muted">${esc(a.username)}</span> ${a.sso?'<span class="tag t-blue">帳號中心</span>':''}${!a.role?'<span class="tag t-yellow">待設定角色</span>':''}<div class="muted">${esc(a.unit||'')} ${esc(a.phone||'')}</div></div>
+        <select class="inp" style="max-width:150px" onchange="setAcc('${esc(a.username)}',{role:this.value})" ${(a.role==='admin'||a.sso)?'disabled title="角色請在帳號中心設定"':''}>${a.role?'':'<option value="" selected>（請設定角色）</option>'}${Object.keys(ROLES).filter(k=>k!=='admin'||a.role==='admin').map(k=>`<option value="${k}" ${k===a.role?'selected':''}>${ROLES[k].label}</option>`).join('')}</select>
         ${a.role==='admin'?'':`<button class="btn btn-sm ${a.approved?'bgh':'bg'}" onclick="setAcc('${esc(a.username)}',{approved:${!a.approved}})">${a.approved?'停用':'核准'}</button>`}</div>`).join('');
   } else {
     const r=await api('getRoster'); if(!r.success){ el.innerHTML=`<div class="alert al-red">${esc(r.message)}</div>`; return; }
@@ -757,11 +780,13 @@ function delRos(row){ confirmBox('刪除這筆班表？','',async()=>{ const r=a
 // ════════════════════════════════════════
 function openMe(){
   modal(`<h3>${esc(CU.displayname)}</h3><p class="muted" style="margin-bottom:12px">${ROLES[CU.role].label}｜${esc(CU.username)}${CU.phone?'｜'+esc(CU.phone):''}</p>
-    <div class="fg"><label>舊密碼</label><input class="inp" id="pw0" type="password"></div>
+    <div class="fg"><label>值班手機／MVPN（系統來電用）</label><div style="display:flex;gap:8px"><input class="inp" id="myPhone" inputmode="tel" value="${esc(CU.phone||'')}" placeholder="09xxxxxxxx"><button class="btn bb" onclick="saveMyPhone()">儲存</button></div></div>
+    ${CU.sso?`<div class="alert al-blue"><span>🔑</span><div>你用帳號中心登入；改 PIN、權限請到帳號中心。<div style="margin-top:8px"><a class="btn bgh btn-sm" href="${window.ACCOUNT?ACCOUNT.centerUrl:'#'}">我的帳號（帳號中心）</a></div></div></div>`:`<div class="fg"><label>舊密碼</label><input class="inp" id="pw0" type="password"></div>
     <div class="fg"><label>新密碼（至少 6 碼）</label><input class="inp" id="pw1" type="password"></div>
-    <button class="btn bb btn-fw" onclick="changePw()">更新密碼</button>
+    <button class="btn bb btn-fw" onclick="changePw()">更新密碼</button>`}
     <div class="act"><button class="btn bgh" onclick="closeModal()">關閉</button><button class="btn br" onclick="logout()">登出</button></div>`);
 }
+async function saveMyPhone(){ const r=await api('setMyPhone',{phone:val('myPhone')}); toast(r.success?'已儲存':r.message,r.success?'ok':'err'); if(r.success){ CU=r.user; } }
 async function changePw(){ const r=await api('changePw',{oldPassword:val('pw0'),newPassword:val('pw1')}); toast(r.message,r.success?'ok':'err'); if(r.success) closeModal(); }
 
 // ════════════════════════════════════════
@@ -785,9 +810,18 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden) poll(); 
 // 啟動：有登入紀錄就直接進入
 (async()=>{
   if(API.indexOf('PASTE_')===0){ toast('請先在 index.html 設定 API 網址','err'); }
-  const t=lsGet('ami_token'); if(!t) return;
-  TOKEN=t; const r=await api('me');
-  if(r.success){ CU=r.user; startApp(); } else { TOKEN=null; lsSet('ami_token',null); }
+  const t=lsGet('ami_token');
+  if(t){
+    TOKEN=t; const r=await api('me');
+    if(r.success){
+      CU=r.user;
+      // 帳號中心使用者：中心已登出、或已換成別人 → 重新以帳號中心登入
+      const cu=window.ACCOUNT && ACCOUNT.cachedUser();
+      if(CU.sso && window.ACCOUNT && (!ACCOUNT.token() || (cu && String(cu.empId)!==String(CU.username)))){ TOKEN=null; CU=null; lsSet('ami_token',null); }
+      else { startApp(); return; }
+    } else { TOKEN=null; lsSet('ami_token',null); }
+  }
+  await trySso();
 })();
 </script>
 </body>
