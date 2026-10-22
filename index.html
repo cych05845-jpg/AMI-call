@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0A0C10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>AMI 啟動系統｜嘉義基督教醫院</title>
+<!--
+  AMI 啟動系統 v1.2（前端）— 外觀與操作沿用 ECPR v4.1
+  部署：把下面 API 換成你的 Apps Script 網頁應用程式網址，放上 GitHub Pages。
+  ⚠ 本頁不放任何金鑰；不輸入病人姓名、病歷號。
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+  :root{
+    --red:#D92B2B;--red-dark:#A81E1E;--red-light:#FF4444;--orange:#E8720C;--yellow:#F5A623;
+    --green:#1A9E5C;--green-light:#22C76E;--blue:#1A6BB5;--blue-light:#2E87D4;--purple:#7C3AED;
+    --bg:#0A0C10;--bg2:#111318;--bg3:#181B22;--bg4:#1E222C;
+    --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.14);
+    --text:#F0F2F7;--text2:#9CA3B0;--text3:#6B7486;--radius:12px;--radius-sm:8px;--shadow:0 8px 32px rgba(0,0,0,.6)
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;color:var(--text);min-height:100vh;overflow-x:hidden;
+    background:radial-gradient(1100px 600px at 0% -10%,rgba(34,211,238,.09),transparent 60%),radial-gradient(900px 520px at 110% 0%,rgba(124,58,237,.11),transparent 60%),var(--bg);background-attachment:fixed}
+  :root{--cyan:#22D3EE;--cyan2:rgba(34,211,238,.16)}
+  .mono{font-family:'JetBrains Mono',monospace}.hidden{display:none!important}
+  /* LOGIN */
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at 30% 20%,rgba(217,43,43,.12),transparent 60%),var(--bg)}
+  .login-card{width:100%;max-width:380px;background:var(--bg3);border:1px solid var(--border2);border-radius:16px;padding:32px 24px;box-shadow:var(--shadow)}
+  .logo{text-align:center;margin-bottom:22px}
+  .logo .ic{width:54px;height:54px;background:linear-gradient(135deg,var(--red),var(--red-dark));border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:8px}
+  .logo h1{font-size:1.2rem;font-weight:900}.logo p{font-size:.75rem;color:var(--text3);margin-top:3px}
+  .fg{margin-bottom:12px}.fg label{display:block;font-size:.74rem;font-weight:600;color:var(--text2);margin-bottom:5px}
+  .inp{width:100%;padding:11px 13px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-size:.95rem;font-family:inherit;outline:none}
+  .inp:focus{border-color:var(--blue-light)}
+  .link{margin-top:14px;text-align:center;font-size:.82rem;color:var(--text3);cursor:pointer}
+  /* NAV */
+  .top-nav{position:sticky;top:0;z-index:200;background:rgba(10,12,16,.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+  .nav-row{height:54px;display:flex;align-items:center;padding:0 14px;gap:10px;max-width:1100px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:9px;flex:1;min-width:0}
+  .nav-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--red),var(--red-dark));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+  .nav-title{font-size:.92rem;font-weight:700;white-space:nowrap}.nav-sub{font-size:.66rem;color:var(--text3)}
+  .chip{display:flex;align-items:center;gap:6px;padding:5px 11px;background:var(--bg4);border:1px solid var(--border2);border-radius:20px;font-size:.78rem;cursor:pointer;color:var(--text2);white-space:nowrap}
+  .bot-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,12,16,.97);backdrop-filter:blur(16px);border-top:1px solid var(--border);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:100}
+  .ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;cursor:pointer;border:none;background:transparent;font-family:inherit;color:var(--text3)}
+  .ni.on{color:var(--red-light)}.ni .i{font-size:1.4rem}.ni .l{font-size:.72rem;font-weight:700}
+  /* LAYOUT */
+  .page{display:none;padding-bottom:90px}.page.on{display:block}
+  .content{max-width:760px;margin:0 auto;padding:14px}
+  #pageEMT .content{max-width:1000px}
+  .card{background:rgba(17,19,24,.74);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:18px;margin-bottom:12px}
+  .card-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .card-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+  .card-title{font-size:.98rem;font-weight:700}.card-sub{font-size:.74rem;color:var(--text3);margin-top:2px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:480px){.g2{grid-template-columns:1fr}}
+  /* BUTTON */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:var(--radius-sm);font-size:.9rem;font-weight:700;font-family:inherit;cursor:pointer;border:none;text-decoration:none}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .br{background:var(--red);color:#fff}.bg{background:var(--green);color:#fff}.bb{background:var(--blue);color:#fff}.bo{background:var(--orange);color:#fff}
+  .bgh{background:var(--bg4);color:var(--text2);border:1px solid var(--border2)}
+  .btn-lg{padding:15px 20px;font-size:1.05rem}.btn-fw{width:100%}.btn-sm{padding:6px 11px;font-size:.78rem}
+  .act{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.act .btn{flex:1;min-width:130px}
+  /* ALERT/TAG */
+  .alert{padding:11px 14px;border-radius:var(--radius-sm);font-size:.86rem;line-height:1.55;display:flex;gap:9px;margin-bottom:12px}
+  .al-red{background:rgba(217,43,43,.1);border:1px solid rgba(217,43,43,.3);color:#FF8080}
+  .al-yellow{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:#FFD060}
+  .al-green{background:rgba(26,158,92,.1);border:1px solid rgba(26,158,92,.3);color:var(--green-light)}
+  .al-blue{background:rgba(26,107,181,.12);border:1px solid rgba(26,107,181,.35);color:#7DB8F0}
+  .tag{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.74rem;font-weight:700;margin:0 4px 4px 0}
+  .t-red{background:rgba(217,43,43,.18);color:#FF8080}.t-green{background:rgba(26,158,92,.18);color:var(--green-light)}
+  .t-blue{background:rgba(26,107,181,.2);color:#7DB8F0}.t-yellow{background:rgba(245,166,35,.16);color:#FFD060}
+  .t-purple{background:rgba(124,58,237,.2);color:#C4B5FD}.t-gray{background:var(--bg4);color:var(--text2)}
+  /* EMT */
+  .emt-head{text-align:center;padding:10px 0 6px}.emt-head h2{font-size:1.5rem;font-weight:900;color:var(--orange)}
+  .emt-head p{font-size:.82rem;color:var(--text3);margin-top:6px}
+  .sec-t{font-size:1rem;font-weight:800;margin:18px 2px 10px}.sec-t small{font-weight:500;color:var(--text3);font-size:.78rem;margin-left:6px}
+  .grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media(min-width:600px){.grid4{grid-template-columns:repeat(4,1fr)}}
+  .sel{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px 8px;min-height:92px;background:rgba(26,158,92,.07);border:2px solid rgba(26,158,92,.32);border-radius:14px;cursor:pointer;color:var(--text);font-family:inherit;font-size:1.25rem;font-weight:900;line-height:1.3;touch-action:manipulation}
+  .sel.small{min-height:64px;font-size:1.08rem}
+  .sel.on{background:rgba(26,158,92,.25);border-color:var(--green);color:var(--green-light);box-shadow:0 0 0 3px rgba(26,158,92,.3)}
+  .sel.blue{background:rgba(26,107,181,.08);border-color:rgba(26,107,181,.35)}
+  .sel.blue.on{background:rgba(26,107,181,.28);border-color:var(--blue-light);color:#9CCBF5;box-shadow:0 0 0 3px rgba(26,107,181,.3)}
+  @media(min-width:600px){.sel{font-size:1.55rem;min-height:118px}.sel.small{font-size:1.3rem;min-height:80px}}
+  .ekg-up{width:100%;min-height:104px;border:2px dashed rgba(245,166,35,.55);background:rgba(245,166,35,.07);border-radius:14px;color:#FFD060;font-size:1.2rem;font-weight:900;cursor:pointer;font-family:inherit}
+  .ekg-up.done{border-style:solid;border-color:var(--green);background:rgba(26,158,92,.12);color:var(--green-light)}
+  .ekg-prev{width:100%;border-radius:10px;margin-top:10px;display:block}
+  .cid{font-family:'JetBrains Mono',monospace;color:var(--yellow);font-weight:700}
+  /* CASE */
+  .case-li{padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;margin-bottom:9px;cursor:pointer}
+  .case-li.need{border-color:var(--red);box-shadow:0 0 0 2px rgba(217,43,43,.25)}
+  .case-li .r1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.case-li .r2{font-size:.78rem;color:var(--text3);margin-top:5px}
+  .kv{display:grid;grid-template-columns:92px 1fr;gap:7px 10px;font-size:.88rem}.kv dt{color:var(--text3)}
+  .ekgs{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+  .ekg-slot{background:#fff;border-radius:10px;min-height:80px;display:flex;align-items:center;justify-content:center;color:#888;font-size:.85rem;overflow:hidden;cursor:zoom-in}
+  .ekg-slot img{width:100%;display:block}
+  .calls{width:100%;border-collapse:collapse;font-size:.84rem}
+  .calls td,.calls th{padding:7px 6px;border-bottom:1px solid var(--border);text-align:left}.calls th{color:var(--text3);font-size:.72rem}
+  .tl{position:relative;padding-left:18px}.tl:before{content:'';position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border2)}
+  .tl-i{position:relative;margin-bottom:10px;font-size:.85rem;line-height:1.45}
+  .tl-i:before{content:'';position:absolute;left:-17px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--bg4);border:2px solid var(--text3)}
+  .tl-i.ok:before{border-color:var(--green-light);background:rgba(26,158,92,.4)}
+  .tl-t{font-family:'JetBrains Mono',monospace;color:var(--text3);font-size:.76rem;margin-right:6px}.tl-w{color:var(--text3);font-size:.76rem}
+  .mgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}@media(min-width:600px){.mgrid{grid-template-columns:repeat(3,1fr)}}
+  .metric{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px}
+  .metric .l{font-size:.74rem;color:var(--text3)}.metric .v{font-size:1.3rem;font-weight:900;margin-top:2px}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}.tab{flex:1;padding:9px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:inherit;font-weight:700;cursor:pointer}
+  .tab.on{background:var(--bg4);color:var(--text);border-color:var(--border2)}
+  .row-li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;margin-bottom:8px;font-size:.85rem}
+  .row-li .grow{flex:1;min-width:140px}
+  .chk{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;background:var(--bg4);border:1px solid var(--border2);border-radius:9px;margin-bottom:8px;cursor:pointer;font-size:.9rem}
+  .chk input{width:18px;height:18px;margin-top:2px;accent-color:var(--green)}
+  /* MODAL/TOAST */
+  .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:1000;align-items:center;justify-content:center;padding:16px}
+  .ov.on{display:flex}
+  .mbox{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:22px 20px;width:100%;max-width:440px;max-height:90vh;overflow:auto;box-shadow:var(--shadow)}
+  .mbox h3{font-size:1.08rem;margin-bottom:10px}
+  .mbox.wide{max-width:96vw;padding:10px}.zoom img{width:100%;display:block;border-radius:8px}
+  #toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);padding:11px 20px;border-radius:24px;font-size:.86rem;z-index:2000;opacity:0;pointer-events:none;transition:opacity .25s;max-width:92vw;text-align:center}
+  #toast.show{opacity:1}#toast.ok{border-color:var(--green);color:var(--green-light)}#toast.err{border-color:var(--red);color:#FF8080}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .muted{color:var(--text3);font-size:.82rem}
+  /* ── 科技感：任務管線 ── */
+  .pipe{display:flex;align-items:flex-start;overflow-x:auto;padding:6px 2px 2px;scrollbar-width:none}.pipe::-webkit-scrollbar{display:none}
+  .pn{flex:1;min-width:48px;display:flex;flex-direction:column;align-items:center;position:relative}
+  .pn:not(:last-child)::after{content:'';position:absolute;top:16px;left:calc(50% + 16px);right:calc(-50% + 16px);height:2px;background:rgba(255,255,255,.12)}
+  .pn.done:not(:last-child)::after{background:linear-gradient(90deg,var(--green-light),var(--cyan));box-shadow:0 0 6px rgba(34,211,238,.5)}
+  .pd{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.95rem;background:var(--bg4);border:2px solid rgba(255,255,255,.14);z-index:1}
+  .pn.done .pd{background:rgba(34,199,110,.16);border-color:var(--green-light);box-shadow:0 0 12px rgba(34,199,110,.45)}
+  .pn.now .pd{border-color:var(--cyan);background:var(--cyan2);animation:ping 1.6s infinite}
+  .pn.skip .pd{opacity:.3}.pn.skip .pl{text-decoration:line-through;opacity:.5}
+  .pl{font-size:.68rem;color:var(--text3);margin-top:5px;white-space:nowrap}.pn.done .pl{color:var(--text2)}.pn.now .pl{color:var(--cyan);font-weight:800}
+  .pt{font-size:.62rem;font-family:'JetBrains Mono',monospace;color:var(--text3);margin-top:1px}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(34,211,238,.6)}70%{box-shadow:0 0 0 11px rgba(34,211,238,0)}100%{box-shadow:0 0 0 0 rgba(34,211,238,0)}}
+  .mini{display:flex;gap:4px;margin-top:7px}.mini i{width:18px;height:4px;border-radius:2px;background:rgba(255,255,255,.12)}
+  .mini i.done{background:var(--green-light)}.mini i.now{background:var(--cyan);animation:blink 1s infinite}.mini i.skip{background:rgba(255,255,255,.05)}
+  @keyframes blink{50%{opacity:.35}}
+  /* ── 倒數環 ── */
+  .ringwrap{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.25);margin-bottom:12px}
+  .ringwrap.late{background:rgba(217,43,43,.08);border-color:rgba(255,68,68,.45)}
+  .ring{width:58px;height:58px;flex-shrink:0;position:relative}.ring svg{transform:rotate(-90deg)}
+  .ring .rt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:700}
+  .ring circle{fill:none;stroke-width:5}.ring .bgc{stroke:rgba(255,255,255,.1)}.ring .fg{stroke:var(--cyan);stroke-linecap:round;transition:stroke-dashoffset .9s linear}
+  .ringwrap.late .fg{stroke:var(--red-light)}.ringwrap.late .rt{color:#FF8080}
+  /* ── EKG 掃描 ── */
+  .ekg-slot{position:relative}
+  .ekg-slot.scan::after{content:'';position:absolute;left:0;right:0;height:35%;top:-35%;background:linear-gradient(180deg,transparent,rgba(34,211,238,.38),transparent);animation:scan 1.5s linear infinite;pointer-events:none}
+  .ekg-slot.scan::before{content:'AI SCANNING';position:absolute;top:8px;right:10px;font:700 .65rem 'JetBrains Mono',monospace;color:#0891B2;background:rgba(255,255,255,.85);padding:2px 6px;border-radius:4px;z-index:2}
+  @keyframes scan{to{top:100%}}
+  /* ── AI 分析面板 ── */
+  .aip{margin-top:10px;border-radius:14px;padding:14px;background:linear-gradient(160deg,rgba(34,211,238,.10),rgba(124,58,237,.12));border:1px solid rgba(34,211,238,.35);box-shadow:0 0 24px rgba(34,211,238,.08) inset}
+  .aip-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .aip-badge{font:800 .7rem 'JetBrains Mono',monospace;letter-spacing:.12em;color:var(--cyan);display:flex;align-items:center;gap:6px}
+  .aip-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:blink 1.2s infinite}
+  .aip-model{font:.62rem 'JetBrains Mono',monospace;color:var(--text3)}
+  .aip-main{display:flex;align-items:center;gap:14px}
+  .gauge{width:78px;height:78px;position:relative;flex-shrink:0}.gauge svg{transform:rotate(-90deg)}
+  .gauge circle{fill:none;stroke-width:7}.gauge .bgc{stroke:rgba(255,255,255,.1)}
+  .gauge .gv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge .gv b{font-size:1.15rem}.gauge .gv span{font-size:.6rem;color:var(--text3)}
+  .verdict .vm{font-size:1.45rem;font-weight:900;letter-spacing:.02em}.verdict .vs{font-size:.85rem;color:var(--text2);margin-top:2px}
+  .v-likely{color:#FF6B6B;text-shadow:0 0 14px rgba(255,68,68,.55)}.v-possible{color:#FFC94D;text-shadow:0 0 12px rgba(245,166,35,.45)}
+  .v-unlikely{color:#4ADE80;text-shadow:0 0 12px rgba(34,199,110,.4)}.v-uncertain{color:var(--text2)}
+  .leads{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:12px}
+  .ld{padding:7px 0;text-align:center;border-radius:8px;font:700 .78rem 'JetBrains Mono',monospace;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--text3)}
+  .ld.up{background:rgba(255,68,68,.18);border-color:rgba(255,68,68,.7);color:#FFB3B3;box-shadow:0 0 10px rgba(255,68,68,.35)}
+  .ld.dn{background:rgba(46,135,212,.18);border-color:rgba(46,135,212,.7);color:#9CCBF5;box-shadow:0 0 10px rgba(46,135,212,.3)}
+  .legend{display:flex;gap:12px;font-size:.68rem;color:var(--text3);margin-top:6px}.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  .aip-find{font-size:.84rem;color:#E0F7FB;line-height:1.6;margin-top:10px;min-height:1.2em}
+  .aip-sub{font-size:.78rem;color:var(--text2);margin-top:4px}
+  .aip-disc{font-size:.68rem;color:var(--text3);margin-top:10px;border-top:1px dashed rgba(255,255,255,.12);padding-top:8px}
+  .eq{display:flex;gap:3px;align-items:flex-end;height:22px}.eq i{width:4px;background:var(--cyan);border-radius:2px;animation:eq 1s infinite ease-in-out}
+  .eq i:nth-child(2){animation-delay:.15s}.eq i:nth-child(3){animation-delay:.3s}.eq i:nth-child(4){animation-delay:.45s}.eq i:nth-child(5){animation-delay:.6s}
+  @keyframes eq{0%,100%{height:5px}50%{height:22px}}
+  .caret::after{content:'▍';color:var(--cyan);animation:blink .8s infinite}
+  .case-li.need{border-color:var(--red);box-shadow:0 0 0 2px rgba(217,43,43,.25),0 0 18px rgba(217,43,43,.18)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .ai-box{border:1px solid rgba(124,58,237,.45);background:rgba(124,58,237,.1);border-radius:10px;padding:11px 13px;margin-top:8px}
+  .ai-h{font-size:.76rem;font-weight:800;color:#C4B5FD;margin-bottom:4px}
+  .ai-r{font-size:1.02rem;font-weight:800;color:#EDE9FE}
+  .ai-d{font-size:.8rem;color:#D6CCFB;margin-top:4px;line-height:1.5}
+  .ai-n{font-size:.7rem;color:var(--text3);margin-top:6px}
+</style>
+</head>
+<body>
+
+<!-- ═════════ 登入／註冊 ═════════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="logo"><div class="ic">🫀</div><h1>AMI 啟動系統</h1><p>嘉義基督教醫院 急診醫學部</p></div>
+    <div id="loginForm">
+      <div class="fg"><label>帳號</label><input class="inp" id="lgUser" autocomplete="username"></div>
+      <div class="fg"><label>密碼</label><input class="inp" id="lgPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn br btn-lg btn-fw" id="lgBtn" onclick="doLogin()">登入</button>
+      <div class="link" onclick="showReg(true)">沒有帳號？申請註冊</div>
+    </div>
+    <div id="regForm" class="hidden">
+      <div class="fg"><label>帳號（英數字）</label><input class="inp" id="rgUser"></div>
+      <div class="fg"><label>姓名</label><input class="inp" id="rgName"></div>
+      <div class="fg"><label>密碼（至少 6 碼）</label><input class="inp" id="rgPass" type="password"></div>
+      <div class="fg"><label>角色</label>
+        <select class="inp" id="rgRole" onchange="regRoleChg()">
+          <option value="emt">EMT</option><option value="np">急診專師</option><option value="dr">急診醫師</option>
+          <option value="cv">CV 醫師</option><option value="tech">導管室技術員</option><option value="nurse">導管室護理師</option>
+        </select></div>
+      <div class="fg" id="rgUnitWrap"><label>所屬分隊（EMT 填）</label><input class="inp" id="rgUnit" placeholder="例：第一分隊"></div>
+      <div class="fg"><label>手機（值班來電用；EMT 可不填）</label><input class="inp" id="rgPhone" inputmode="tel" placeholder="09xxxxxxxx"></div>
+      <button class="btn bb btn-lg btn-fw" onclick="doRegister()">送出申請</button>
+      <div class="link" onclick="showReg(false)">返回登入</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ APP ═════════ -->
+<div id="app" class="hidden">
+  <div class="top-nav"><div class="nav-row">
+    <div class="brand"><div class="nav-icon">🫀</div><div><div class="nav-title">AMI 啟動系統</div><div class="nav-sub" id="navSub"></div></div></div>
+    <div class="chip" onclick="openMe()"><span id="meIcon"></span><span id="meName"></span></div>
+  </div></div>
+
+  <!-- EMT -->
+  <div class="page" id="pageEMT"><div class="content">
+    <div id="emtForm">
+      <div class="emt-head"><h2>AMI 院前初篩</h2><p>點選即可，免打字｜🚑 <span id="emtUnit"></span></p></div>
+      <div class="sec-t">① 主要表現<small>可複選</small></div><div class="grid4" id="g_sym"></div>
+      <div class="sec-t">② 發作時間</div><div class="grid3" id="g_onset"></div>
+      <div class="sec-t">③ 12 導程 EKG<small>必填｜拍照時請避開病人姓名</small></div>
+      <button class="ekg-up" id="ekgBtn" onclick="pickEkg('emt')">📷 拍照上傳 EKG</button>
+      <img id="ekgPrev" class="ekg-prev hidden" alt="EKG 預覽">
+      <div class="sec-t">④ 預計到院</div><div class="grid4" id="g_eta"></div>
+      <div id="emtHint" class="alert al-yellow" style="margin-top:16px"><span>ℹ️</span><div>請完成：EKG、至少一項主要表現、預計到院時間</div></div>
+      <button class="btn bo btn-lg btn-fw" id="emtSubmit" onclick="emtSubmit()" disabled style="font-size:1.3rem;padding:20px">確認送出通報</button>
+    </div>
+    <div id="emtSent" class="hidden"></div>
+  </div></div>
+
+  <!-- 任務 -->
+  <div class="page" id="pageTask"><div class="content">
+    <div id="taskTop"></div>
+    <div id="taskList"></div>
+    <div id="taskDetail" class="hidden"></div>
+  </div></div>
+
+  <!-- 追蹤 -->
+  <div class="page" id="pageTrack"><div class="content"><div id="trackBody"></div></div></div>
+
+  <!-- 管理 -->
+  <div class="page" id="pageAdmin"><div class="content">
+    <div class="tabs"><button class="tab on" id="tabAcc" onclick="adminTab('acc')">帳號</button><button class="tab" id="tabRos" onclick="adminTab('ros')">班表</button></div>
+    <div id="adminBody"></div>
+  </div></div>
+
+  <nav class="bot-nav" id="botNav"></nav>
+</div>
+
+<input type="file" id="fileIn" accept="image/*" capture="environment" class="hidden">
+<div class="ov" id="ov"><div class="mbox" id="mbox"></div></div>
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+//  設定（部署後只要改這一行）
+// ════════════════════════════════════════
+const API = 'https://script.google.com/macros/s/AKfycbxXlgTK8lW8DUDvHXgjUetbvsi8_pnPS25czCFvXn3p8_zp9TyfqQCbjnQqaTMAj_MD/exec';
+const POLL_MS = 5000;
+
+const ROLES = {
+  emt:{label:'EMT',icon:'🚑'}, np:{label:'急診專師',icon:'⚡'}, dr:{label:'急診醫師',icon:'🩺'},
+  cv:{label:'CV 醫師',icon:'🫀'}, tech:{label:'導管室技術員',icon:'🏥'}, nurse:{label:'導管室護理師',icon:'💉'},
+  admin:{label:'管理者',icon:'⚙️'}
+};
+const NAV = {
+  emt:[['pageEMT','🚑','通報']],
+  admin:[['pageAdmin','⚙️','管理'],['pageTask','📋','任務'],['pageTrack','🗂','追蹤']],
+  _:[['pageTask','📋','任務'],['pageTrack','🗂','追蹤']]
+};
+const SYM=[['chest','胸痛／胸悶'],['sweat','冒冷汗'],['sob','呼吸喘'],['shock','昏厥／休克徵象']];
+const ONSET=[['lt3','< 3 小時'],['3to12','3–12 小時'],['gt12','> 12 小時／不明']];
+const TX=[['o2','給氧'],['iv','建立 IV'],['med','已給藥（依救護規範）'],['mon','心電監視']];
+const ETA=[['5','5 分'],['10','10 分'],['15','15 分'],['20','20 分以上']];
+const STATUS={pending:['待 NP 判斷','t-yellow'],cv_reading:['CV 判讀中','t-purple'],activated:['已啟動導管室','t-red'],
+  in_cath:['已進導管室','t-green'],closed:['NP 結案','t-gray'],not_activated:['CV 不啟動','t-gray']};
+const CALLST={pending:'待撥',dialing:'撥號中',acked:'已確認',no_ack:'接了未按 1',no_answer:'未接',busy:'忙線',failed:'撥號失敗',canceled:'取消'};
+const CALLROLE={cv:'CV',tech:'技術員',nurse:'護理師'};
+const LBL=(arr,k)=>(arr.find(a=>a[0]===k)||[,k||'—'])[1];
+
+let TOKEN=null, CU=null, cases=[], selId=null, page=null, pollTimer=null, seen=null, roster=null;
+const ekgCache={};
+let AI_OFF=false; const aiKicked=new Set();
+const AIS={likely:['疑似 STEMI','t-red'],possible:['可能 STEMI','t-yellow'],unlikely:['不像 STEMI','t-green'],uncertain:['無法判定','t-gray']};
+const emt={sym:new Set(), onset:null, eta:null, ekg:null, caseId:null, case:null};
+
+// ════════════════════════════════════════
+//  API（同 ECPR：小資料 GET、大資料 POST text/plain）
+// ════════════════════════════════════════
+async function api(action, data={}){
+  const body = JSON.stringify(Object.assign({action, token:TOKEN}, data));
+  try{
+    const r = body.length<=1500 ? await fetch(API+'?payload='+encodeURIComponent(body))
+      : await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body});
+    const j = await r.json();
+    if(j && j.relogin && TOKEN){ toast('登入逾時，請重新登入','err'); logout(); }
+    return j || {success:false,message:'沒有回應'};
+  }catch(e){ return {success:false,message:'連線失敗：'+e.message}; }
+}
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ v===null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} }
+
+// ════════════════════════════════════════
+//  登入
+// ════════════════════════════════════════
+function showReg(on){ document.getElementById('loginForm').classList.toggle('hidden',on); document.getElementById('regForm').classList.toggle('hidden',!on); }
+function regRoleChg(){ document.getElementById('rgUnitWrap').classList.toggle('hidden', document.getElementById('rgRole').value!=='emt'); }
+async function doLogin(){
+  const b=document.getElementById('lgBtn'); b.disabled=true; b.innerHTML='<span class="spin"></span>';
+  const r=await api('login',{username:val('lgUser'),password:val('lgPass')});
+  b.disabled=false; b.textContent='登入';
+  if(!r.success){ toast(r.message,'err'); return; }
+  TOKEN=r.token; CU=r.user; lsSet('ami_token',TOKEN); startApp();
+}
+async function doRegister(){
+  const r=await api('register',{username:val('rgUser'),displayname:val('rgName'),password:val('rgPass'),
+    role:val('rgRole'),unit:val('rgUnit'),phone:val('rgPhone')});
+  toast(r.message||(r.success?'已送出':'失敗'), r.success?'ok':'err');
+  if(r.success) showReg(false);
+}
+function logout(){
+  TOKEN=null; CU=null; lsSet('ami_token',null); clearInterval(pollTimer); closeModal();
+  document.getElementById('app').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden');
+}
+function startApp(){
+  document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('app').classList.remove('hidden');
+  const R=ROLES[CU.role]||{};
+  document.getElementById('meIcon').textContent=R.icon||''; document.getElementById('meName').textContent=CU.displayname;
+  document.getElementById('navSub').textContent=R.label+(CU.unit?'｜'+CU.unit:'');
+  const nav=NAV[CU.role]||NAV._;
+  document.getElementById('botNav').innerHTML=nav.map(([p,i,l])=>`<button class="ni" data-p="${p}" onclick="go('${p}')"><span class="i">${i}</span><span class="l">${l}</span></button>`).join('');
+  if(CU.role==='emt'){ buildEMT(); const saved=lsGet('ami_emt_case'); if(saved){ emt.caseId=saved; } }
+  seen=null; go(nav[0][0]);
+  clearInterval(pollTimer); pollTimer=setInterval(poll,POLL_MS);
+}
+function go(p){
+  page=p; document.querySelectorAll('.page').forEach(x=>x.classList.remove('on')); document.getElementById(p).classList.add('on');
+  document.querySelectorAll('.ni').forEach(n=>n.classList.toggle('on',n.dataset.p===p));
+  if(p==='pageTask'){ selId=null; renderTask(); loadRoster(); }
+  if(p==='pageTrack') loadTrack();
+  if(p==='pageAdmin') adminTab('acc');
+  if(p==='pageEMT') renderEMT();
+  poll(); window.scrollTo(0,0);
+}
+async function poll(){
+  if(!TOKEN || document.hidden) return;
+  if(page==='pageTask'){
+    const r=await api('getCases',{scope:'active'});
+    if(r.success){ cases=r.cases; checkNew(); renderTask(); }
+  } else if(page==='pageEMT' && emt.caseId){
+    const r=await api('getCase',{caseId:emt.caseId});
+    if(r.success){ emt.case=r.case; renderEMT(); }
+  }
+}
+
+// ════════════════════════════════════════
+//  新案件提醒（APP 開著時）
+// ════════════════════════════════════════
+function needsMe(c){
+  const r=CU.role;
+  if(r==='np') return c.status==='pending';
+  if(r==='cv') return c.status==='cv_reading';
+  if(r==='tech'||r==='nurse') return c.status==='activated' && !(c.cathBy||[]).some(x=>x.username===CU.username);
+  if(r==='dr') return c.status==='pending'||c.status==='cv_reading';
+  return false;
+}
+function checkNew(){
+  const now=new Set(cases.filter(needsMe).map(c=>c.CaseID+'|'+c.status));
+  if(seen){ const fresh=[...now].filter(k=>!seen.has(k)); if(fresh.length){ beep(); toast('有新任務：'+fresh[0].split('|')[0],'err'); try{navigator.vibrate&&navigator.vibrate([300,150,300]);}catch(e){} } }
+  seen=now;
+}
+let actx=null;
+function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); [0,.35].forEach(d=>{ const o=actx.createOscillator(),g=actx.createGain(); o.frequency.value=880; o.connect(g); g.connect(actx.destination); g.gain.setValueAtTime(.25,actx.currentTime+d); o.start(actx.currentTime+d); o.stop(actx.currentTime+d+.22); }); }catch(e){} }
+
+// ════════════════════════════════════════
+//  EMT
+// ════════════════════════════════════════
+function buildEMT(){
+  document.getElementById('emtUnit').textContent=CU.unit||'未設定分隊';
+  const mk=(id,arr,key,multi,cls)=>{ document.getElementById(id).innerHTML=arr.map(([k,l])=>`<button class="sel ${cls||''}" onclick="emtPick('${key}','${k}',${multi},this)">${l}</button>`).join(''); };
+  mk('g_sym',SYM,'sym',true,''); mk('g_onset',ONSET,'onset',false,'small blue'); mk('g_eta',ETA,'eta',false,'small blue');
+}
+function emtPick(key,k,multi,btn){
+  if(multi){ emt[key].has(k)?emt[key].delete(k):emt[key].add(k); btn.classList.toggle('on'); }
+  else{ emt[key]=k; btn.parentElement.querySelectorAll('.sel').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
+  emtCheck();
+}
+function emtCheck(){
+  const ok=!!emt.ekg && emt.sym.size>0 && !!emt.eta;
+  document.getElementById('emtSubmit').disabled=!ok; document.getElementById('emtHint').classList.toggle('hidden',ok);
+}
+async function emtSubmit(){
+  const b=document.getElementById('emtSubmit'); b.disabled=true; b.innerHTML='<span class="spin"></span> 送出中…';
+  const r=await api('createCase',{sym:[...emt.sym],onset:emt.onset,eta:emt.eta,ekg:emt.ekg});
+  b.innerHTML='確認送出通報';
+  if(!r.success){ b.disabled=false; toast(r.message,'err'); return; }
+  emt.caseId=r.caseId; emt.case=r.case; lsSet('ami_emt_case',r.caseId);
+  toast(r.merged?'已併入 '+r.caseId+'（同車進行中案件）':'通報已送出 '+r.caseId,'ok');
+  renderEMT(); aiKick(r.caseId,(r.case.ekg||[]).length-1);
+}
+function renderEMT(){
+  const sent=!!emt.caseId;
+  document.getElementById('emtForm').classList.toggle('hidden',sent);
+  const el=document.getElementById('emtSent'); el.classList.toggle('hidden',!sent);
+  if(!sent) return;
+  const c=emt.case;
+  if(!c){ el.innerHTML=`<div class="card muted">讀取案件中…</div>`; return; }
+  el.innerHTML=`<div style="background:rgba(26,158,92,.14);border:2px solid rgba(26,158,92,.5);border-radius:14px;padding:20px;text-align:center;margin:8px 0 14px">
+      <div style="font-size:2.2rem">✅</div><div style="font-size:1.3rem;font-weight:900;color:var(--green-light)">通報已送出</div>
+      <div class="cid" style="font-size:1.25rem;margin-top:6px">${esc(c.CaseID)}</div><div class="muted" style="margin-top:6px">交班時請報出案件碼</div></div>
+    ${emtQualityHtml(c)}
+    <div class="card"><div class="card-hd"><div class="card-ico" style="background:rgba(26,107,181,.18)">🩹</div><div><div class="card-title">院前處置（途中隨時點）</div><div class="card-sub">點一下＝完成並記下時間，自動傳到院內；再點取消</div></div></div>
+      <div class="grid4">${TX.map(([k,l])=>{ const x=(c.tx||[]).find(y=>y.k===k); return `<button class="sel small blue ${x?'on':''}" onclick="emtTx('${k}','${l}')">${l}${x?`<span style="font-size:.8rem;margin-top:4px">✓ ${hm(x.t)}</span>`:''}</button>`; }).join('')}</div></div>
+    <div class="card"><div class="card-title" style="margin-bottom:8px">院內處理進度 ${statusTag(c)}</div>${pipelineHtml(c)}</div>
+    <div class="act"><button class="btn bgh" onclick="pickEkg('more')">📷 同一病人再傳 EKG</button><button class="btn bgh" onclick="emtReset()">🔄 新案件</button></div>`;
+}
+async function emtTx(k,l){ const r=await api('addTx',{caseId:emt.caseId,k,label:l}); if(r.success){ emt.case=r.case; renderEMT(); } else toast(r.message,'err'); }
+function emtReset(){
+  emt.sym.clear(); emt.onset=null; emt.eta=null; emt.ekg=null; emt.caseId=null; emt.case=null; lsSet('ami_emt_case',null);
+  buildEMT(); const b=document.getElementById('ekgBtn'); b.classList.remove('done'); b.textContent='📷 拍照上傳 EKG';
+  document.getElementById('ekgPrev').classList.add('hidden'); emtCheck(); renderEMT();
+}
+
+// ════════════════════════════════════════
+//  EKG 拍照（壓縮後上傳）
+// ════════════════════════════════════════
+let pickMode=null;
+function pickEkg(mode){ pickMode=mode; const f=document.getElementById('fileIn'); f.value=''; f.click(); }
+document.getElementById('fileIn').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  let data; try{ data=await compressImage(file); }catch(err){ toast('圖片讀取失敗','err'); return; }
+  if(pickMode==='emt'){
+    emt.ekg=data; const p=document.getElementById('ekgPrev'); p.src=data; p.classList.remove('hidden');
+    const b=document.getElementById('ekgBtn'); b.classList.add('done'); b.textContent='✅ EKG 已拍（點此重拍）'; emtCheck();
+  } else {
+    const caseId = pickMode==='more' ? emt.caseId : selId;
+    toast('上傳中…');
+    const r=await api('uploadEkg',{caseId,ekg:data});
+    if(!r.success){ toast(r.message,'err'); return; }
+    toast('EKG 已上傳，併入 '+caseId,'ok'); aiKick(caseId,(r.case.ekg||[]).length-1);
+    if(pickMode==='more'){ emt.case=r.case; renderEMT(); } else poll();
+  }
+});
+function compressImage(file,maxSide=1600,q=.78){
+  return new Promise((res,rej)=>{ const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{ const s=Math.min(1,maxSide/Math.max(img.width,img.height)); const w=Math.round(img.width*s), h=Math.round(img.height*s);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h; cv.getContext('2d').drawImage(img,0,0,w,h); URL.revokeObjectURL(url); res(cv.toDataURL('image/jpeg',q)); };
+    img.onerror=rej; img.src=url; });
+}
+
+
+// ════════════════════════════════════════
+//  AI 判讀輔助（後端 ai_ekg.gs；未設定金鑰時自動隱藏）
+// ════════════════════════════════════════
+function aiKick(caseId,idx,force){
+  if(AI_OFF || idx<0 || !caseId) return; const k=caseId+'_'+idx;
+  if(aiKicked.has(k) && !force) return; aiKicked.add(k);
+  api('aiRead',{caseId,idx}).then(r=>{
+    if(r && r.disabled){ AI_OFF=true; return; }
+    if(r && !r.success && force) toast('AI：'+(r.message||'暫時無法判讀'),'err');
+    if(r && r.case){
+      [cases,trackCases].forEach(arr=>{ const i=arr.findIndex(x=>x.CaseID===caseId); if(i>=0) arr[i]=Object.assign(arr[i],r.case); });
+      if(emt.caseId===caseId){ emt.case=Object.assign(emt.case||{},r.case); if(page==='pageEMT') renderEMT(); }
+      if(page==='pageTask') renderTask(); else if(page==='pageTrack' && trackSel===caseId) renderTrack();
+    }
+  });
+}
+const typed=new Set();
+const LEADS=['I','aVR','V1','V4','II','aVL','V2','V5','III','aVF','V3','V6'];
+const CONF={'高':88,'中':62,'低':34};
+function aiScanning(c,e,i){ return !AI_OFF && !e.ai && (e.aiRunning || aiKicked.has(c.CaseID+'_'+i)); }
+function aiBoxHtml(c,e,i){
+  if(CU.role==='emt' || AI_OFF) return '';
+  const a=e.ai, key=c.CaseID+'_'+i+'_'+(a&&a.t||'');
+  if(!a){ if(!aiScanning(c,e,i)) return '';
+    return `<div class="aip"><div class="aip-top"><span class="aip-badge"><span class="dot"></span>AI ECG ANALYSIS</span><span class="aip-model">processing</span></div>
+      <div class="aip-main"><div class="eq"><i></i><i></i><i></i><i></i><i></i></div><div class="aip-sub">正在分析 12 導程心電圖…約 5–20 秒</div></div></div>`; }
+  if(a.error) return `<div class="aip"><div class="aip-top"><span class="aip-badge">AI ECG ANALYSIS</span></div><div class="aip-sub">AI 判讀失敗：${esc(a.error)}</div><button class="btn bgh btn-sm" style="margin-top:8px" onclick="event.stopPropagation();aiKick('${c.CaseID}',${i},true)">重試</button></div>`;
+  const [l]=AIS[a.stemi]||[a.stemi]; const pct=CONF[a.confidence]||34, C=2*Math.PI*33;
+  const gc={likely:'#FF4444',possible:'#F5A623',unlikely:'#22C76E',uncertain:'#9CA3B0'}[a.stemi]||'#9CA3B0';
+  const up=a.st_elevation||[], dn=a.st_depression||[];
+  const find=a.findings||'', done=typed.has(key);
+  return `<div class="aip">
+    <div class="aip-top"><span class="aip-badge"><span class="dot"></span>AI ECG ANALYSIS</span><span class="aip-model">${esc(a.model||'')}｜${hm(a.t)}</span></div>
+    <div class="aip-main">
+      <div class="gauge"><svg width="78" height="78"><circle class="bgc" cx="39" cy="39" r="33"/><circle cx="39" cy="39" r="33" stroke="${gc}" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-pct/100)}" style="filter:drop-shadow(0 0 4px ${gc})"/></svg><div class="gv"><b>${esc(a.confidence)}</b><span>信心</span></div></div>
+      <div class="verdict"><div class="vm v-${a.stemi}">${l}</div><div class="vs">${a.territory&&a.territory!=='無'?esc(a.territory):'部位：—'}${a.quality==='poor'?'｜<span style="color:#FFD060">影像品質不佳</span>':''}</div></div>
+    </div>
+    <div class="leads">${LEADS.map(k=>`<div class="ld ${up.includes(k)?'up':(dn.includes(k)?'dn':'')}">${k}${up.includes(k)?' ↑':(dn.includes(k)?' ↓':'')}</div>`).join('')}</div>
+    <div class="legend"><span><i style="background:rgba(255,68,68,.7)"></i>ST 上升</span><span><i style="background:rgba(46,135,212,.7)"></i>ST 下降</span></div>
+    ${find?`<div class="aip-find ${done?'':'caret'}" ${done?'':`data-type="${esc(find)}" data-key="${esc(key)}"`}>${done?esc(find):''}</div>`:''}
+    ${a.quality==='poor'&&a.quality_note?`<div class="aip-sub">品質：${esc(a.quality_note)}</div>`:''}
+    ${a.mimics?`<div class="aip-sub">需鑑別：${esc(a.mimics)}</div>`:''}
+    <div class="aip-disc">AI 判讀輔助，僅供參考；最終由 NP／醫師判定</div></div>`;
+}
+function runTypers(){
+  tickRings();
+  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('[data-type]').forEach(el=>{
+    const txt=el.dataset.type, key=el.dataset.key; el.removeAttribute('data-type'); typed.add(key);
+    if(reduce){ el.textContent=txt; el.classList.remove('caret'); return; }
+    let n=0; const t=setInterval(()=>{ n+=2; el.textContent=txt.slice(0,n); if(n>=txt.length){ clearInterval(t); el.classList.remove('caret'); } },28);
+  });
+}
+// ── 任務管線
+function pipeSteps(c){
+  const cl=c.calls||[], lastAi=(c.ekg||[]).filter(e=>e.ai&&!e.ai.error).pop(), aiRun=(c.ekg||[]).some(e=>e.aiRunning);
+  const cathAck=['tech','nurse'].every(r=>cl.some(x=>x.role===r&&x.ackAt)) || (c.cathBy||[]).length>0;
+  const cathT=(c.cathBy||[])[0]?.t || (cl.filter(x=>['tech','nurse'].includes(x.role)&&x.ackAt).map(x=>x.ackAt).sort()[0]);
+  const closed=c.status==='closed', noAct=c.status==='not_activated';
+  const st=(done,now,skip)=>skip?'skip':(done?'done':(now?'now':''));
+  const S=[
+    [c.source==='emt'?'🚑':'🚶','通報',st(true),c.reportTime],
+    ['🤖',CU&&CU.role==='emt'?'品質':'AI',AI_OFF?'skip':st(!!lastAi,aiRun||(!lastAi&&(c.ekg||[]).length>0)),lastAi&&lastAi.ai.t],
+    ['⚡','NP',st(!!c.npTime,c.status==='pending'),c.npTime],
+    ['🫀','CV',st(!!c.cvTime,c.status==='cv_reading',closed),c.cvTime],
+    ['🏥','導管室',st(cathAck,c.status==='activated'&&!cathAck,closed||noAct),cathT],
+    ['🏁','到院',st(!!c.arrivalTime,['cv_reading','activated'].includes(c.status)&&!c.arrivalTime&&c.source==='emt',closed||noAct),c.arrivalTime],
+    ['🎯','PCI',st(!!c.cathIn,c.status==='activated'&&!!c.arrivalTime,closed||noAct),c.cathIn]
+  ];
+  return S;
+}
+function pipelineHtml(c){
+  return `<div class="pipe">${pipeSteps(c).map(([ic,l,s,t])=>`<div class="pn ${s}"><div class="pd">${s==='done'?'✓':ic}</div><div class="pl">${l}</div><div class="pt">${s==='done'&&t?hm(t):''}</div></div>`).join('')}</div>`;
+}
+function miniPipe(c){ return `<div class="mini">${pipeSteps(c).map(x=>`<i class="${x[2]}"></i>`).join('')}</div>`; }
+// ── 2 分鐘倒數環（NP 待判斷、CV 判讀中）
+function ringHtml(c){
+  let from=null, label='';
+  if(c.status==='pending' && ['np','dr','admin'].includes(CU.role)){ from=c.reportTime; label='NP 判斷時限 2 分鐘，逾時系統通知急診醫師'; }
+  if(c.status==='cv_reading' && ['cv','dr','admin','np'].includes(CU.role)){ from=c.cvCallAt; label='CV 確認時限 2 分鐘，逾時自動打備援'; }
+  if(!from) return '';
+  return `<div class="ringwrap" data-ringwrap="${from}"><div class="ring"><svg width="58" height="58"><circle class="bgc" cx="29" cy="29" r="24"/><circle class="fg" cx="29" cy="29" r="24" stroke-dasharray="${2*Math.PI*24}" data-ring="${from}"/></svg><div class="rt" data-ringt="${from}"></div></div><div class="muted" style="color:var(--text2)">${label}</div></div>`;
+}
+function tickRings(){
+  const C=2*Math.PI*24;
+  document.querySelectorAll('[data-ring]').forEach(el=>{ const s=(Date.now()-new Date(el.dataset.ring))/1000; el.style.strokeDashoffset=C*Math.min(1,s/120); });
+  document.querySelectorAll('[data-ringt]').forEach(el=>{ const s=Math.round((Date.now()-new Date(el.dataset.ringt))/1000); const left=120-s; el.textContent=left>=0?fmtSec(left):'+'+fmtSec(-left); });
+  document.querySelectorAll('[data-ringwrap]').forEach(el=>{ el.classList.toggle('late',(Date.now()-new Date(el.dataset.ringwrap))/1000>120); });
+}
+function aiTag(c){
+  if(!['np','dr','cv'].includes(CU.role)) return '';
+  const last=(c.ekg||[]).filter(e=>e.ai&&!e.ai.error).pop(); if(!last) return '';
+  const [l,cl]=AIS[last.ai.stemi]||['','t-gray']; return `<span class="tag ${cl}">AI：${l}</span>`;
+}
+function emtQualityHtml(c){
+  const last=(c.ekg||[]).slice(-1)[0]; if(!last || AI_OFF) return '';
+  if(last.ai && !last.ai.error){
+    return last.ai.quality==='poor'
+      ? `<div class="alert al-yellow"><span>⚠</span><div style="flex:1">EKG 可能不清楚：${esc(last.ai.quality_note||'建議重拍')}<div style="margin-top:8px"><button class="btn bo btn-sm" onclick="pickEkg('more')">📷 重拍上傳</button></div></div></div>`
+      : `<div class="alert al-green"><span>✓</span><div>EKG 清晰，可判讀</div></div>`;
+  }
+  if(last.aiRunning || (!last.ai && aiKicked.has(c.CaseID+'_'+(c.ekg.length-1)))) return `<div class="alert al-blue"><span>🤖</span><div>AI 正在檢查 EKG 品質…</div></div>`;
+  return '';
+}
+
+// ════════════════════════════════════════
+//  任務頁（NP／急診醫師／CV／導管室／管理者）
+// ════════════════════════════════════════
+async function loadRoster(){ const r=await api('getRoster'); if(r.success){ roster=r; renderTaskTop(); } }
+function renderTaskTop(){
+  const r=CU.role; let h='';
+  if(['np','dr','admin'].includes(r)) h+=`<button class="btn bb btn-sm" onclick="walkIn()">＋ 自行來院建案</button> `;
+  if(['cv','tech','nurse','dr'].includes(r)) h+=`<button class="btn bgh btn-sm" onclick="takeShiftAsk()">🙋 我接班</button>`;
+  if(roster){ const d=roster.onDuty; h+=`<div class="muted" style="margin-top:8px">目前值班｜CV：${esc(d.cv[0]||'—')}${d.cv[1]?'（備援 '+esc(d.cv[1])+'）':''}　技術員：${esc(d.tech[0]||'—')}　護理師：${esc(d.nurse[0]||'—')}</div>`; }
+  document.getElementById('taskTop').innerHTML=h?`<div class="card" style="padding:12px 14px">${h}</div>`:'';
+}
+function renderTask(){
+  const list=document.getElementById('taskList'), det=document.getElementById('taskDetail');
+  if(selId){
+    const c=cases.find(x=>x.CaseID===selId);
+    list.classList.add('hidden'); det.classList.remove('hidden');
+    if(!c){ det.innerHTML=`<button class="btn bgh btn-sm" onclick="selId=null;renderTask()">← 返回</button><div class="card muted" style="margin-top:10px">案件已結束或不在進行中清單，請到「追蹤」查看。</div>`; return; }
+    if(document.activeElement && det.contains(document.activeElement) && document.activeElement.tagName==='INPUT') return;  // 正在輸入時不重畫
+    det.innerHTML=`<button class="btn bgh btn-sm" onclick="selId=null;renderTask()">← 返回列表</button><div style="height:10px"></div>`+detailHtml(c,true); runTypers();
+    loadEkgs(c);
+    return;
+  }
+  det.classList.add('hidden'); list.classList.remove('hidden');
+  if(!cases.length){ list.innerHTML=`<div class="alert al-blue"><span>ℹ️</span><div>目前沒有進行中的案件。有新任務時，APP 開著會嗶聲提醒；值班者另會接到電話。</div></div>`; return; }
+  list.innerHTML=cases.map(c=>`<div class="case-li ${needsMe(c)?'need':''}" onclick="selId='${c.CaseID}';renderTask();window.scrollTo(0,0)">
+    <div class="r1"><span class="cid">${esc(c.CaseID)}</span>${statusTag(c)}${needsMe(c)?'<span class="tag t-red">待你處理</span>':''}${aiTag(c)}</div>
+    <div class="r2">${c.source==='emt'?'🚑 '+esc(c.unit):'🚶 自行來院'}｜${hm(c.reportTime)}｜${callSummary(c)}</div>${miniPipe(c)}</div>`).join(''); runTypers();
+}
+function callSummary(c){
+  const cl=c.calls||[]; if(!cl.length) return '尚未撥號';
+  return cl.map(x=>`${CALLROLE[x.role]||x.role}${x.level?'(備援)':''}:${CALLST[x.status]||x.status}`).join('、');
+}
+function detailHtml(c,withActions){
+  const etaLeft=c.etaAt&&!c.arrivalTime?Math.round((new Date(c.etaAt)-Date.now())/60000):null;
+  let h=`<div class="card"><div class="card-hd"><div class="card-ico" style="background:rgba(217,43,43,.15)">🫀</div><div><div class="card-title"><span class="cid">${esc(c.CaseID)}</span> ${statusTag(c)}</div><div class="card-sub">通報 ${dt(c.reportTime)}｜經過 <span class="mono" data-since="${c.reportTime}">${since(c.reportTime)}</span></div></div></div>`;
+  h+=pipelineHtml(c);
+  if(withActions){ h+=ringHtml(c); h+=actionsHtml(c); }
+  h+=`<dl class="kv" style="margin-top:12px">
+    <dt>來源</dt><dd>${c.source==='emt'?'🚑 '+esc(c.unit)+'｜'+esc(c.reporter||''):'🚶 自行來院'}</dd>
+    ${c.source==='emt'?`<dt>預計到院</dt><dd>${c.arrivalTime?'已到院 '+hm(c.arrivalTime):(etaLeft===null?'—':(etaLeft>0?'約 '+etaLeft+' 分後':'應已到院'))}</dd>`:''}
+    <dt>主要表現</dt><dd>${(c.sym||[]).map(k=>`<span class="tag t-red">${LBL(SYM,k)}</span>`).join('')||'—'}</dd>
+    <dt>發作時間</dt><dd>${c.onset?LBL(ONSET,c.onset):'—'}</dd>
+    <dt>院前處置</dt><dd>${(c.tx||[]).map(x=>`<span class="tag t-blue">${esc(x.label)} ${hm(x.t)}</span>`).join('')||'<span class="muted">無</span>'}</dd>
+    ${c.bed?`<dt>床號</dt><dd>${esc(c.bed)}</dd>`:''}
+    ${(c.cathBy||[]).length?`<dt>導管室接手</dt><dd>${c.cathBy.map(x=>`<span class="tag t-green">${esc(x.name)} ${hm(x.t)}</span>`).join('')}</dd>`:''}
+  </dl>`;
+  h+=`<div class="ekgs">${(c.ekg||[]).map((e,i)=>`<div><div class="muted" style="margin-bottom:4px">EKG #${i+1}｜${hm(e.t)}｜${esc(e.by)}</div><div class="ekg-slot ${aiScanning(c,e,i)?'scan':''}" id="ekg_${c.CaseID}_${i}" onclick="zoomEkg('${c.CaseID}',${i})">載入中…</div>${aiBoxHtml(c,e,i)}</div>`).join('')||'<div class="muted">尚無 EKG</div>'}</div>`;
+  if(withActions && ['np','dr','admin'].includes(CU.role) && ['pending','cv_reading','activated'].includes(c.status)) h+=`<div class="act"><button class="btn bgh btn-sm" onclick="pickEkg('task')">📷 補傳 EKG</button></div>`;
+  h+=`</div>`;
+  const cl=c.calls||[];
+  h+=`<div class="card"><div class="card-title" style="margin-bottom:8px">電話通知</div>${cl.length?`<table class="calls"><tr><th>角色</th><th>對象</th><th>狀態</th><th>次數</th><th>確認</th></tr>${cl.map(x=>`<tr><td>${CALLROLE[x.role]||esc(x.role)}${x.level?'（備援）':''}</td><td>${esc(x.name)}</td><td>${x.status==='acked'?'<span class="tag t-green">已確認</span>':esc(CALLST[x.status]||x.status)}</td><td>${x.attempts}</td><td>${x.ackAt?hm(x.ackAt):'—'}</td></tr>`).join('')}</table>`:'<div class="muted">尚未撥號</div>'}</div>`;
+  h+=`<div class="card"><div class="card-title" style="margin-bottom:10px">時間軸</div><div class="tl">${(c.events||[]).map(e=>`<div class="tl-i ${e.kind}"><span class="tl-t">${hm(e.t,true)}</span>${esc(e.text)} <span class="tl-w">${e.by?'— '+esc(e.by):''}</span></div>`).join('')}</div></div>`;
+  return h;
+}
+function actionsHtml(c){
+  const r=CU.role, adm=r==='admin'; let h='';
+  if(c.status==='pending' && (['np','dr'].includes(r)||adm))
+    h+=`<div class="act"><button class="btn br btn-lg" onclick="npSend()">送 CV 判讀</button><button class="btn bgh btn-lg" onclick="npCloseAsk()">不符合，結案</button></div>`;
+  if(c.status==='cv_reading' && (['cv','dr'].includes(r)||adm))
+    h+=`<div class="act"><button class="btn br btn-lg" onclick="cvActAsk()">${r==='dr'?'（備援）':''}啟動導管室</button><button class="btn bgh btn-lg" onclick="cvNoAsk()">不啟動</button></div>`;
+  if(['cv_reading','activated'].includes(c.status) && !c.arrivalTime && (['np','dr'].includes(r)||adm))
+    h+=`<div class="row-li" style="margin-top:12px"><div class="grow"><b>病人到院</b><div class="muted">EMT 報出案件碼 → 填床號（不填姓名、病歷號）</div></div><input class="inp" id="bedIn" placeholder="床號" style="max-width:120px"><button class="btn bg" onclick="arrive()">到院</button></div>`;
+  if(c.status==='activated' && (['tech','nurse'].includes(r)) && !(c.cathBy||[]).some(x=>x.username===CU.username))
+    h+=`<div class="act"><button class="btn bb btn-lg" onclick="cathGo()">我接手・出發</button></div>`;
+  if(c.status==='activated' && c.arrivalTime && (['np','dr','tech','nurse'].includes(r)||adm))
+    h+=`<div class="act"><button class="btn br" onclick="toCath()">病人送入導管室</button></div>`;
+  return h;
+}
+async function loadEkgs(c){
+  if(['np','dr','cv'].includes(CU.role)) (c.ekg||[]).forEach((e,i)=>{ if(!e.ai && !e.aiRunning) aiKick(c.CaseID,i); });
+  for(let i=0;i<(c.ekg||[]).length;i++){
+    const key=c.CaseID+'_'+i, el=document.getElementById('ekg_'+key); if(!el) continue;
+    if(ekgCache[key]){ el.innerHTML=`<img src="${ekgCache[key]}" alt="EKG">`; continue; }
+    if(ekgCache[key]===false) continue; ekgCache[key]=false;
+    const r=await api('getEkg',{caseId:c.CaseID,idx:i});
+    if(r.success){ ekgCache[key]=r.dataUrl; const e2=document.getElementById('ekg_'+key); if(e2) e2.innerHTML=`<img src="${r.dataUrl}" alt="EKG">`; }
+    else { delete ekgCache[key]; el.textContent='載入失敗，稍後重試'; }
+  }
+}
+function zoomEkg(id,i){ const u=ekgCache[id+'_'+i]; if(!u) return; modal(`<div class="zoom"><img src="${u}" alt="EKG"></div><div class="act"><button class="btn bgh" onclick="closeModal()">關閉</button></div>`,true); }
+
+async function doAct(action,data,okMsg){
+  const r=await api(action,Object.assign({caseId:selId},data));
+  if(!r.success){ toast(r.message,'err'); return false; }
+  toast(okMsg,'ok'); closeModal();
+  const i=cases.findIndex(x=>x.CaseID===selId); if(i>=0 && r.case){ cases[i]=Object.assign(cases[i],r.case); }
+  poll(); renderTask(); return true;
+}
+function npSend(){ confirmBox('送 CV 判讀？','系統會打電話給當班 CV 醫師。',()=>doAct('npDecide',{decision:'send'},'已送 CV 判讀，正在撥號')); }
+function npCloseAsk(){ modal(`<h3>不符合，結案</h3><p class="muted" style="margin-bottom:10px">不會通知 CV 與導管室；若之後收到新 EKG，案件會自動重新開啟。</p>
+  <select class="inp" id="rsn"><option>EKG 不符合 STEMI</option><option>非心因性胸痛</option><option>其他</option></select>
+  <div class="act"><button class="btn bgh" onclick="closeModal()">取消</button><button class="btn bg" onclick="doAct('npDecide',{decision:'close',reason:val('rsn')},'已結案')">確認結案</button></div>`); }
+function cvActAsk(){ modal(`<h3>⚡ 確認啟動導管室</h3><p class="muted" style="margin-bottom:12px">勾選後才能送出；系統會打電話給導管室技術員與護理師。</p>
+  <label class="chk"><input type="checkbox" class="ac" onchange="acChk()"> 已看過 EKG，符合 STEMI</label>
+  <label class="chk"><input type="checkbox" class="ac" onchange="acChk()"> 案件碼／預計到院時間已確認</label>
+  <div class="act"><button class="btn bgh" onclick="closeModal()">取消</button><button class="btn br" id="acOk" disabled onclick="doAct('cvDecide',{decision:'activate',checks:true},'已啟動導管室')">確認啟動</button></div>`); }
+function acChk(){ document.getElementById('acOk').disabled=[...document.querySelectorAll('.ac')].some(x=>!x.checked); }
+function cvNoAsk(){ modal(`<h3>判讀不啟動</h3><select class="inp" id="rsn"><option>非 STEMI</option><option>到院後再評估</option><option>其他</option></select>
+  <div class="act"><button class="btn bgh" onclick="closeModal()">取消</button><button class="btn bg" onclick="doAct('cvDecide',{decision:'no',reason:val('rsn')},'已記錄不啟動')">確認</button></div>`); }
+function arrive(){ const bed=val('bedIn'); if(!bed){ toast('請填床號','err'); return; } doAct('arrive',{bed},'已登記到院'); }
+function toCath(){ confirmBox('病人送入導管室？','',()=>doAct('toCath',{},'已記錄進導管室')); }
+function cathGo(){ doAct('cathGo',{},'已記錄：你接手・出發'); }
+function walkIn(){
+  modal(`<h3>自行來院建案</h3><p class="muted" style="margin-bottom:10px">檢傷 EKG 疑似 STEMI 時使用。不填姓名、病歷號。</p>
+    <div class="fg"><label>床號</label><input class="inp" id="wiBed" placeholder="例：急救 3"></div>
+    <div class="fg"><label>發作時間</label><select class="inp" id="wiOnset">${ONSET.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>
+    <div class="act"><button class="btn bgh" onclick="closeModal()">取消</button><button class="btn bb" onclick="walkInOk()">建立</button></div>`);
+}
+async function walkInOk(){
+  const r=await api('createCase',{sym:['chest'],onset:val('wiOnset'),bed:val('wiBed')});
+  if(!r.success){ toast(r.message,'err'); return; }
+  closeModal(); toast('已建立 '+r.caseId+'，請補傳 EKG','ok'); selId=r.caseId; await poll(); renderTask();
+}
+function takeShiftAsk(){
+  const roles=CU.role==='dr'?[['cv','CV（備援）']]:[[CU.role,ROLES[CU.role].label]];
+  modal(`<h3>🙋 我接班</h3><p class="muted" style="margin-bottom:10px">臨時調班時使用：接下來的時段，系統改打電話給你（${esc(CU.phone||'帳號未填手機')}）。</p>
+    <div class="fg"><label>崗位</label><select class="inp" id="tsRole">${roles.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></div>
+    <div class="fg"><label>接班時數</label><select class="inp" id="tsH"><option>12</option><option>8</option><option>24</option><option>4</option></select></div>
+    <div class="act"><button class="btn bgh" onclick="closeModal()">取消</button><button class="btn bg" onclick="takeShiftOk()">確認接班</button></div>`);
+}
+async function takeShiftOk(){ const r=await api('takeShift',{role:val('tsRole'),hours:Number(val('tsH'))}); if(!r.success){ toast(r.message,'err'); return; } closeModal(); toast('已接班至 '+dt(r.until),'ok'); loadRoster(); }
+
+// ════════════════════════════════════════
+//  追蹤／匯出
+// ════════════════════════════════════════
+let trackDays=7, trackCases=[], trackSel=null;
+async function loadTrack(){
+  document.getElementById('trackBody').innerHTML='<div class="card muted">讀取中…</div>';
+  const r=await api('getCases',{scope:'recent',days:trackDays});
+  if(!r.success){ document.getElementById('trackBody').innerHTML=`<div class="alert al-red">${esc(r.message)}</div>`; return; }
+  trackCases=r.cases; renderTrack();
+}
+function renderTrack(){
+  const canExport=['np','dr','admin'].includes(CU.role);
+  if(trackSel){ const c=trackCases.find(x=>x.CaseID===trackSel);
+    if(c){ document.getElementById('trackBody').innerHTML=`<button class="btn bgh btn-sm" onclick="trackSel=null;renderTrack()">← 返回</button><div style="height:10px"></div>`+metricsHtml(c)+detailHtml(c,false); runTypers(); loadEkgs(c); return; } }
+  document.getElementById('trackBody').innerHTML=`<div class="card"><div class="card-hd"><div class="card-ico" style="background:rgba(245,166,35,.15)">🗂</div><div><div class="card-title">案件追蹤</div><div class="card-sub">共 ${trackCases.length} 案</div></div></div>
+    <div class="act" style="margin-top:0"><select class="inp" style="max-width:150px" onchange="trackDays=Number(this.value);loadTrack()">${[1,7,31,90].map(d=>`<option value="${d}" ${d===trackDays?'selected':''}>近 ${d} 天</option>`).join('')}</select>
+    ${canExport?'<button class="btn bgh" onclick="exportCsv()">⬇ 匯出查檢表 CSV</button>':''}</div></div>`+
+    (trackCases.map(c=>`<div class="case-li" onclick="trackSel='${c.CaseID}';renderTrack();window.scrollTo(0,0)"><div class="r1"><span class="cid">${esc(c.CaseID)}</span>${statusTag(c)}</div><div class="r2">${c.source==='emt'?'🚑 '+esc(c.unit):'🚶 自行來院'}｜${dt(c.reportTime)}｜${callSummary(c)}</div></div>`).join('')||'<div class="muted">此期間沒有案件</div>');
+}
+function metricsHtml(c){
+  const cl=c.calls||[], s=(a,b)=>(a&&b)?fmtSec(Math.round((new Date(b)-new Date(a))/1000)):'—';
+  const acks=['tech','nurse'].map(r=>cl.filter(x=>x.role===r&&x.ackAt).map(x=>new Date(x.ackAt).getTime())).map(a=>a.length?Math.min(...a):null);
+  const allAck=acks.every(x=>x)?new Date(Math.max(...acks)).toISOString():null;
+  const M=[['通報 → NP 處理',s(c.reportTime,c.npTime)],['CV 來電 → 判讀',s(c.cvCallAt,c.cvTime)],
+    ['啟動 → 導管室全員確認',c.cvDecision==='activate'?s(c.cvTime,allAck):'—'],['到院 → 進導管室',s(c.arrivalTime,c.cathIn)],
+    ['電話通數',cl.reduce((n,x)=>n+x.attempts,0)+' 通'],['升級備援',cl.some(x=>x.level>=1)?'是':'否']];
+  return `<div class="card"><div class="card-title" style="margin-bottom:10px">本案指標</div><div class="mgrid">${M.map(([l,v])=>`<div class="metric"><div class="l">${l}</div><div class="v mono">${v}</div></div>`).join('')}</div></div>`;
+}
+async function exportCsv(){
+  toast('匯出中…'); const r=await api('exportData',{days:Math.max(trackDays,31)});
+  if(!r.success){ toast(r.message,'err'); return; }
+  const csv='﻿'+[r.head,...r.rows].map(row=>row.map(v=>'"'+String(v===null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='AMI查檢表_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+}
+
+// ════════════════════════════════════════
+//  管理者：帳號、班表
+// ════════════════════════════════════════
+async function adminTab(t){
+  document.getElementById('tabAcc').classList.toggle('on',t==='acc'); document.getElementById('tabRos').classList.toggle('on',t==='ros');
+  const el=document.getElementById('adminBody'); el.innerHTML='<div class="card muted">讀取中…</div>';
+  if(t==='acc'){
+    const r=await api('listAccounts'); if(!r.success){ el.innerHTML=`<div class="alert al-red">${esc(r.message)}</div>`; return; }
+    const pend=r.accounts.filter(a=>!a.approved);
+    el.innerHTML=(pend.length?`<div class="alert al-yellow"><span>🔔</span><div>${pend.length} 個帳號待核准</div></div>`:'')+
+      r.accounts.map(a=>`<div class="row-li"><div class="grow"><b>${esc(a.displayname)}</b> <span class="muted">${esc(a.username)}</span><div class="muted">${esc(a.unit||'')} ${esc(a.phone||'')}</div></div>
+        <select class="inp" style="max-width:150px" onchange="setAcc('${esc(a.username)}',{role:this.value})" ${a.role==='admin'?'disabled':''}>${Object.keys(ROLES).filter(k=>k!=='admin'||a.role==='admin').map(k=>`<option value="${k}" ${k===a.role?'selected':''}>${ROLES[k].label}</option>`).join('')}</select>
+        ${a.role==='admin'?'':`<button class="btn btn-sm ${a.approved?'bgh':'bg'}" onclick="setAcc('${esc(a.username)}',{approved:${!a.approved}})">${a.approved?'停用':'核准'}</button>`}</div>`).join('');
+  } else {
+    const r=await api('getRoster'); if(!r.success){ el.innerHTML=`<div class="alert al-red">${esc(r.message)}</div>`; return; }
+    const d=r.onDuty, RL={cv:'CV',tech:'技術員',nurse:'護理師'};
+    el.innerHTML=`<div class="card"><div class="card-title" style="margin-bottom:8px">此刻值班</div>${['cv','tech','nurse'].map(k=>`<div class="row-li"><div class="grow"><b>${RL[k]}</b></div>主要：${esc(d[k][0]||'—')}　備援：${esc(d[k][1]||'—')}</div>`).join('')}</div>
+      <div class="card"><div class="card-title" style="margin-bottom:10px">新增班表</div>
+        <div class="g2"><div class="fg"><label>崗位</label><select class="inp" id="rRole"><option value="cv">CV</option><option value="tech">技術員</option><option value="nurse">護理師</option></select></div>
+        <div class="fg"><label>層級</label><select class="inp" id="rLv"><option value="0">主要</option><option value="1">備援</option></select></div>
+        <div class="fg"><label>姓名</label><input class="inp" id="rName"></div><div class="fg"><label>手機</label><input class="inp" id="rPhone" inputmode="tel"></div>
+        <div class="fg"><label>開始（空白＝不限）</label><input class="inp" id="rStart" type="datetime-local"></div><div class="fg"><label>結束（空白＝不限）</label><input class="inp" id="rEnd" type="datetime-local"></div></div>
+        <button class="btn bb btn-fw" onclick="addRos()">新增</button><p class="muted" style="margin-top:8px">同一時段多筆時，最下面一筆優先（「我接班」會加在最下面）。也可直接在試算表 Roster 分頁貼上整個月班表。</p></div>
+      <div class="card"><div class="card-title" style="margin-bottom:10px">班表（${r.rows.length} 筆）</div>${r.rows.slice().reverse().map(x=>`<div class="row-li"><div class="grow"><b>${RL[x.role]||esc(x.role)}${x.level==='1'?'（備援）':''}｜${esc(x.name)}</b><div class="muted">${esc(x.phone)}｜${x.start?dt(x.start):'不限'} → ${x.end?dt(x.end):'不限'} ${esc(x.note||'')}</div></div><button class="btn bgh btn-sm" onclick="delRos(${x.row})">刪除</button></div>`).join('')||'<div class="muted">尚無班表</div>'}</div>`;
+  }
+}
+async function setAcc(username,patch){ const r=await api('setAccount',Object.assign({username},patch)); toast(r.success?'已更新':r.message,r.success?'ok':'err'); adminTab('acc'); }
+async function addRos(){
+  const r=await api('addRoster',{role:val('rRole'),level:val('rLv'),name:val('rName'),phone:val('rPhone'),start:val('rStart'),end:val('rEnd')});
+  toast(r.success?'已新增':r.message,r.success?'ok':'err'); if(r.success) adminTab('ros');
+}
+function delRos(row){ confirmBox('刪除這筆班表？','',async()=>{ const r=await api('delRoster',{row}); closeModal(); toast(r.success?'已刪除':r.message,r.success?'ok':'err'); adminTab('ros'); }); }
+
+// ════════════════════════════════════════
+//  個人：改密碼、登出
+// ════════════════════════════════════════
+function openMe(){
+  modal(`<h3>${esc(CU.displayname)}</h3><p class="muted" style="margin-bottom:12px">${ROLES[CU.role].label}｜${esc(CU.username)}${CU.phone?'｜'+esc(CU.phone):''}</p>
+    <div class="fg"><label>舊密碼</label><input class="inp" id="pw0" type="password"></div>
+    <div class="fg"><label>新密碼（至少 6 碼）</label><input class="inp" id="pw1" type="password"></div>
+    <button class="btn bb btn-fw" onclick="changePw()">更新密碼</button>
+    <div class="act"><button class="btn bgh" onclick="closeModal()">關閉</button><button class="btn br" onclick="logout()">登出</button></div>`);
+}
+async function changePw(){ const r=await api('changePw',{oldPassword:val('pw0'),newPassword:val('pw1')}); toast(r.message,r.success?'ok':'err'); if(r.success) closeModal(); }
+
+// ════════════════════════════════════════
+//  共用
+// ════════════════════════════════════════
+function val(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
+function esc(s){ return String(s===null||s===undefined?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function statusTag(c){ const [l,cl]=STATUS[c.status]||[c.status,'t-gray']; return `<span class="tag ${cl}">${l}</span>`; }
+function hm(t,sec){ if(!t) return '—'; const d=new Date(t); return d.toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit',second:sec?'2-digit':undefined}); }
+function dt(t){ if(!t) return '—'; const d=new Date(t); return (d.getMonth()+1)+'/'+d.getDate()+' '+hm(t); }
+function fmtSec(s){ if(s===null||s===undefined||isNaN(s)) return '—'; const m=Math.floor(s/60); return m+':'+String(s%60).padStart(2,'0'); }
+function since(t){ return fmtSec(Math.max(0,Math.round((Date.now()-new Date(t))/1000))); }
+function modal(html,wide){ const b=document.getElementById('mbox'); b.className='mbox'+(wide?' wide':''); b.innerHTML=html; document.getElementById('ov').classList.add('on'); }
+function closeModal(){ document.getElementById('ov').classList.remove('on'); }
+function confirmBox(title,msg,fn){ window._cf=fn; modal(`<h3>${title}</h3>${msg?`<p class="muted" style="margin-bottom:10px">${msg}</p>`:''}<div class="act"><button class="btn bgh" onclick="closeModal()">取消</button><button class="btn br" onclick="window._cf()">確認</button></div>`); }
+let _tt; function toast(m,k){ const t=document.getElementById('toast'); t.textContent=m; t.className='show '+(k||''); clearTimeout(_tt); _tt=setTimeout(()=>t.className='',2600); }
+document.getElementById('ov').addEventListener('click',e=>{ if(e.target.id==='ov') closeModal(); });
+setInterval(()=>{ document.querySelectorAll('[data-since]').forEach(el=>el.textContent=since(el.dataset.since)); tickRings(); },1000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) poll(); });
+
+// 啟動：有登入紀錄就直接進入
+(async()=>{
+  if(API.indexOf('PASTE_')===0){ toast('請先在 index.html 設定 API 網址','err'); }
+  const t=lsGet('ami_token'); if(!t) return;
+  TOKEN=t; const r=await api('me');
+  if(r.success){ CU=r.user; startApp(); } else { TOKEN=null; lsSet('ami_token',null); }
+})();
+</script>
+</body>
+</html>
