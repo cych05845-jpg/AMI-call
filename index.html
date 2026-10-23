@@ -9,7 +9,7 @@
 <!-- 嘉基急診帳號中心（員編＋PIN 單一登入） -->
 <script src="https://cych05845-jpg.github.io/ed-account/account-sdk.js"></script>
 <!--
-  AMI 啟動系統 v1.3（前端）— 外觀與操作沿用 ECPR v4.1
+  AMI 啟動系統 v1.3.3（前端）— 外觀與操作沿用 ECPR v4.1
   部署：把下面 API 換成你的 Apps Script 網頁應用程式網址，放上 GitHub Pages。
   ⚠ 本頁不放任何金鑰；不輸入病人姓名、病歷號。
 -->
@@ -191,12 +191,14 @@
 <!-- ═════════ 登入／註冊 ═════════ -->
 <div id="loginScreen">
   <div class="login-card">
-    <div class="logo"><div class="ic">🫀</div><h1>AMI 啟動系統</h1><p>嘉義基督教醫院 急診醫學部</p></div>
+    <div class="logo"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.4 2.9 4.5 6.6 4.5c2.1 0 3.6 1.2 5.4 3.1 1.8-1.9 3.3-3.1 5.4-3.1 3.7 0 5.7 3.9 4.2 7.2C19.5 16.4 12 21 12 21z" fill="#fff" fill-opacity=".18" stroke="#fff" stroke-width="1.6"/><path d="M3.5 12h4l1.6-3 2.4 6 2-4.5 1.3 1.5H20.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h1>AMI 啟動系統</h1><p>嘉義基督教醫院 急診醫學部</p></div>
     <div id="ssoBox">
       <button class="btn br btn-lg btn-fw" onclick="ssoGo()">🔑 帳號中心登入（員編＋PIN）</button>
       <div class="muted" style="text-align:center;margin-top:8px">院內同仁請用這個，和其他急診程式同一組帳號</div>
       <div id="ssoMsg" class="alert al-yellow hidden" style="margin-top:12px"></div>
       <div class="link" onclick="showLocal(true)">EMT／院外人員登入 ▾</div>
+      <div class="link" onclick="runDiag()" style="margin-top:6px">🩺 登入有問題？連線診斷</div>
+      <div id="diagBox" class="hidden" style="margin-top:12px"></div>
     </div>
     <div id="loginForm" class="hidden">
       <div class="fg"><label>AMI 帳號</label><input class="inp" id="lgUser" autocomplete="username"></div>
@@ -225,7 +227,7 @@
 <!-- ═════════ APP ═════════ -->
 <div id="app" class="hidden">
   <div class="top-nav"><div class="nav-row">
-    <div class="brand"><div class="nav-icon">🫀</div><div><div class="nav-title">AMI 啟動系統</div><div class="nav-sub" id="navSub"></div></div></div>
+    <div class="brand"><div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.4 2.9 4.5 6.6 4.5c2.1 0 3.6 1.2 5.4 3.1 1.8-1.9 3.3-3.1 5.4-3.1 3.7 0 5.7 3.9 4.2 7.2C19.5 16.4 12 21 12 21z" fill="#fff" fill-opacity=".18" stroke="#fff" stroke-width="1.6"/><path d="M3.5 12h4l1.6-3 2.4 6 2-4.5 1.3 1.5H20.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="nav-title">AMI 啟動系統</div><div class="nav-sub" id="navSub"></div></div></div>
     <div class="chip" onclick="openMe()"><span id="meIcon"></span><span id="meName"></span></div>
   </div></div>
 
@@ -273,11 +275,12 @@
 //  設定（部署後只要改這一行）
 // ════════════════════════════════════════
 const API = 'https://script.google.com/macros/s/AKfycbxXlgTK8lW8DUDvHXgjUetbvsi8_pnPS25czCFvXn3p8_zp9TyfqQCbjnQqaTMAj_MD/exec';
+const VERSION = 'v1.3.3';
 const POLL_MS = 5000;
 
 const ROLES = {
   emt:{label:'EMT',icon:'🚑'}, np:{label:'急診專師',icon:'⚡'}, dr:{label:'急診醫師',icon:'🩺'},
-  cv:{label:'CV 醫師',icon:'🫀'}, tech:{label:'導管室技術員',icon:'🏥'}, nurse:{label:'導管室護理師',icon:'💉'},
+  cv:{label:'CV 醫師',icon:'❤️'}, tech:{label:'導管室技術員',icon:'🏥'}, nurse:{label:'導管室護理師',icon:'💉'},
   admin:{label:'管理者',icon:'⚙️'}
 };
 const NAV = {
@@ -322,6 +325,26 @@ function lsSet(k,v){ try{ v===null?localStorage.removeItem(k):localStorage.setIt
 // ════════════════════════════════════════
 function showReg(on){ document.getElementById('loginForm').classList.toggle('hidden',on); document.getElementById('regForm').classList.toggle('hidden',!on); }
 function showLocal(on){ document.getElementById('ssoBox').classList.toggle('hidden',on); document.getElementById('loginForm').classList.toggle('hidden',!on); document.getElementById('regForm').classList.add('hidden'); }
+async function runDiag(){
+  const box=document.getElementById('diagBox'); box.classList.remove('hidden');
+  const L=[]; const add=(ok,t,d)=>{ L.push([ok,t,d||'']); paint(); };
+  const paint=()=>{ box.innerHTML=`<div class="card" style="padding:12px 14px;text-align:left">${L.map(([ok,t,d])=>`<div style="font-size:.84rem;margin-bottom:6px">${ok===null?'⏳':(ok?'✅':'❌')} <b>${esc(t)}</b>${d?`<div class="muted" style="margin-left:22px;word-break:break-all">${esc(d)}</div>`:''}</div>`).join('')}
+    <button class="btn bgh btn-sm" onclick="copyDiag()">📋 複製診斷結果</button></div>`; window._diagText=L.map(([ok,t,d])=>(ok?'OK ':'NG ')+t+(d?'：'+d:'')).join('\n'); };
+  add(true,'AMI 前端版本',VERSION);
+  const here=location.origin+location.pathname;
+  add(/^https:\/\/cych05845-jpg\.github\.io\//.test(here),'網址',here+(/github\.io/.test(here)?'':'（必須從 https://cych05845-jpg.github.io/… 開啟，才能共用帳號中心登入）'));
+  add(!!window.ACCOUNT,'帳號中心元件',window.ACCOUNT?'已載入':'account-sdk.js 沒有載入（網路或網址問題）');
+  try{ const r=await fetch(API); const t=await r.text(); add(/AMI API OK/.test(t),'AMI 後端',/AMI API OK/.test(t)?'連線正常':t.slice(0,120)); }catch(e){ add(false,'AMI 後端','連不到：'+e.message); }
+  if(!window.ACCOUNT){ return; }
+  const ct=ACCOUNT.token(), cu=ACCOUNT.cachedUser();
+  add(!!ct,'帳號中心登入狀態',ct?('已登入：'+(cu?(cu.empId+' '+(cu.name||'')):'')):'這個瀏覽器還沒登入帳號中心（請按上面紅色按鈕）');
+  if(!ct) return;
+  try{ const v=await ACCOUNT.verify(); add(!!v.ok,'帳號中心驗證',v.ok?('權限：'+((v.user&&v.user.perms)||[]).join(', ')+(v.user&&v.user.mustChange?'｜⚠ 尚未改 PIN':'')):(v.error||'失敗')); }catch(e){ add(false,'帳號中心驗證','連不到帳號中心：'+e.message); }
+  const r=await api('ssoLogin',{centerToken:ct});
+  add(!!r.success,'AMI 登入交換',r.success?('成功：'+r.user.displayname+'（'+(ROLES[r.user.role]||{}).label+'）'):(r.message||'失敗'));
+  if(r.success){ TOKEN=r.token; CU=r.user; lsSet('ami_token',TOKEN); setTimeout(startApp,800); }
+}
+function copyDiag(){ try{ navigator.clipboard.writeText(window._diagText||''); toast('已複製，貼給 Claude 即可','ok'); }catch(e){ toast('請手動截圖','err'); } }
 function ssoGo(){ if(!window.ACCOUNT){ toast('帳號中心元件載入失敗，請確認網路後重新整理','err'); return; } ACCOUNT.goLogin(); }
 function ssoMsg(html,cls){ const e=document.getElementById('ssoMsg'); e.className='alert '+(cls||'al-yellow'); e.innerHTML=html; e.classList.toggle('hidden',!html); }
 async function trySso(){
@@ -391,7 +414,7 @@ function needsMe(c){
   const r=CU.role;
   if(r==='np') return c.status==='pending';
   if(r==='cv') return c.status==='cv_reading';
-  if(r==='tech'||r==='nurse') return c.status==='activated' && !(c.cathBy||[]).some(x=>x.username===CU.username);
+  if(r==='tech'||r==='nurse') return c.status==='activated' && !(c.cathBy||[]).some(x=>uk(x.username)===uk(CU.username));
   if(r==='dr') return c.status==='pending'||c.status==='cv_reading';
   return false;
 }
@@ -544,7 +567,7 @@ function pipeSteps(c){
     [c.source==='emt'?'🚑':'🚶','通報',st(true),c.reportTime],
     ['🤖',CU&&CU.role==='emt'?'品質':'AI',AI_OFF?'skip':st(!!lastAi,aiRun||(!lastAi&&(c.ekg||[]).length>0)),lastAi&&lastAi.ai.t],
     ['⚡','NP',st(!!c.npTime,c.status==='pending'),c.npTime],
-    ['🫀','CV',st(!!c.cvTime,c.status==='cv_reading',closed),c.cvTime],
+    ['❤️','CV',st(!!c.cvTime,c.status==='cv_reading',closed),c.cvTime],
     ['🏥','導管室',st(cathAck,c.status==='activated'&&!cathAck,closed||noAct),cathT],
     ['🏁','到院',st(!!c.arrivalTime,['cv_reading','activated'].includes(c.status)&&!c.arrivalTime&&c.source==='emt',closed||noAct),c.arrivalTime],
     ['🎯','PCI',st(!!c.cathIn,c.status==='activated'&&!!c.arrivalTime,closed||noAct),c.cathIn]
@@ -619,7 +642,7 @@ function callSummary(c){
 }
 function detailHtml(c,withActions){
   const etaLeft=c.etaAt&&!c.arrivalTime?Math.round((new Date(c.etaAt)-Date.now())/60000):null;
-  let h=`<div class="card"><div class="card-hd"><div class="card-ico" style="background:rgba(217,43,43,.15)">🫀</div><div><div class="card-title"><span class="cid">${esc(c.CaseID)}</span> ${statusTag(c)}</div><div class="card-sub">通報 ${dt(c.reportTime)}｜經過 <span class="mono" data-since="${c.reportTime}">${since(c.reportTime)}</span></div></div></div>`;
+  let h=`<div class="card"><div class="card-hd"><div class="card-ico" style="background:rgba(217,43,43,.15)">❤️</div><div><div class="card-title"><span class="cid">${esc(c.CaseID)}</span> ${statusTag(c)}</div><div class="card-sub">通報 ${dt(c.reportTime)}｜經過 <span class="mono" data-since="${c.reportTime}">${since(c.reportTime)}</span></div></div></div>`;
   h+=pipelineHtml(c);
   if(withActions){ h+=ringHtml(c); h+=actionsHtml(c); }
   h+=`<dl class="kv" style="margin-top:12px">
@@ -647,7 +670,7 @@ function actionsHtml(c){
     h+=`<div class="act"><button class="btn br btn-lg" onclick="cvActAsk()">${r==='dr'?'（備援）':''}啟動導管室</button><button class="btn bgh btn-lg" onclick="cvNoAsk()">不啟動</button></div>`;
   if(['cv_reading','activated'].includes(c.status) && !c.arrivalTime && (['np','dr'].includes(r)||adm))
     h+=`<div class="row-li" style="margin-top:12px"><div class="grow"><b>病人到院</b><div class="muted">EMT 報出案件碼 → 填床號（不填姓名、病歷號）</div></div><input class="inp" id="bedIn" placeholder="床號" style="max-width:120px"><button class="btn bg" onclick="arrive()">到院</button></div>`;
-  if(c.status==='activated' && (['tech','nurse'].includes(r)) && !(c.cathBy||[]).some(x=>x.username===CU.username))
+  if(c.status==='activated' && (['tech','nurse'].includes(r)) && !(c.cathBy||[]).some(x=>uk(x.username)===uk(CU.username)))
     h+=`<div class="act"><button class="btn bb btn-lg" onclick="cathGo()">我接手・出發</button></div>`;
   if(c.status==='activated' && c.arrivalTime && (['np','dr','tech','nurse'].includes(r)||adm))
     h+=`<div class="act"><button class="btn br" onclick="toCath()">病人送入導管室</button></div>`;
@@ -792,6 +815,7 @@ async function changePw(){ const r=await api('changePw',{oldPassword:val('pw0'),
 // ════════════════════════════════════════
 //  共用
 // ════════════════════════════════════════
+function uk(v){ const s=String(v==null?'':v).trim().toLowerCase(); return /^\d+$/.test(s)?(s.replace(/^0+/,'')||'0'):s; }
 function val(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
 function esc(s){ return String(s===null||s===undefined?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function statusTag(c){ const [l,cl]=STATUS[c.status]||[c.status,'t-gray']; return `<span class="tag ${cl}">${l}</span>`; }
@@ -817,7 +841,7 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden) poll(); 
       CU=r.user;
       // 帳號中心使用者：中心已登出、或已換成別人 → 重新以帳號中心登入
       const cu=window.ACCOUNT && ACCOUNT.cachedUser();
-      if(CU.sso && window.ACCOUNT && (!ACCOUNT.token() || (cu && String(cu.empId)!==String(CU.username)))){ TOKEN=null; CU=null; lsSet('ami_token',null); }
+      if(CU.sso && window.ACCOUNT && (!ACCOUNT.token() || (cu && uk(cu.empId)!==uk(CU.username)))){ TOKEN=null; CU=null; lsSet('ami_token',null); }
       else { startApp(); return; }
     } else { TOKEN=null; lsSet('ami_token',null); }
   }
